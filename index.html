@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>무료진료 전자 진료·처방 관리 (구글시트 연동버전)</title>
+<style>
+:root{--navy:#183b56;--blue:#246b91;--pale:#eef5f8;--line:#d6e0e6;--ink:#24323b;--muted:#687780;--red:#a33b32}
+*{box-sizing:border-box}body{margin:0;background:#f4f7f9;color:var(--ink);font-family:system-ui,-apple-system,"Malgun Gothic",sans-serif}
+header{background:var(--navy);color:white;padding:18px max(18px,calc((100% - 1180px)/2));}
+header h1{font-size:21px;margin:0 0 5px}header p{margin:0;color:#d7e5ed;font-size:13px}
+main{max-width:1180px;margin:22px auto;padding:0 16px}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.tabs button,.btn{border:1px solid var(--line);background:white;color:var(--ink);padding:10px 15px;border-radius:8px;cursor:pointer;font-weight:600}
+.tabs button.active,.btn.primary{background:var(--blue);border-color:var(--blue);color:white}
+.panel{background:white;border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:16px;box-shadow:0 2px 8px #183b5608}
+h2{font-size:18px;margin:0 0 16px;color:var(--navy)}h3{font-size:15px;margin:18px 0 9px}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:5px}.field label{font-size:12px;color:var(--muted);font-weight:700}
+input,textarea,select{font:inherit;border:1px solid #cbd7de;border-radius:7px;padding:9px;background:white;min-width:0;color:var(--ink)}
+textarea{resize:vertical;min-height:90px}.wide{grid-column:1/-1}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.search{max-width:320px;width:100%}.druglist{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.druggroup{border:1px solid var(--line);border-radius:9px;overflow:hidden}.druggroup h4{background:var(--pale);padding:9px 11px;margin:0;font-size:13px;color:var(--navy)}
+.drug{display:grid;grid-template-columns:22px 1fr;align-items:center;padding:7px 10px;border-top:1px solid #edf1f3;font-size:13px;gap:5px}.drug input{padding:0}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{border:1px solid var(--line);padding:8px;text-align:left}th{background:var(--pale);color:var(--navy)}
+.rx-table input{width:100%;padding:6px}.rx-table td:first-child{white-space:nowrap;font-weight:650}
+.muted{color:var(--muted);font-size:12px}.empty{text-align:center;padding:25px;color:var(--muted)}
+.statrow{display:flex;gap:12px;flex-wrap:wrap}.stat{background:var(--pale);padding:12px 16px;border-radius:9px;min-width:140px}.stat b{display:block;font-size:21px;color:var(--navy)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}.danger{color:var(--red)}.hidden{display:none!important}
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#22343f;color:white;padding:10px 16px;border-radius:8px;display:none;z-index:10}
+.print-only{display:none}
+@media(max-width:850px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.druglist{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.grid,.druglist{grid-template-columns:1fr}.panel{padding:14px}main{padding:0 10px}}
+@media print{
+ @page{size:A4 portrait;margin:12mm}
+ body{background:white;font-size:10pt}header,.tabs,.no-print,.screen-only{display:none!important}main{display:none!important}.panel{border:0;box-shadow:none;padding:0;margin:0}
+ .print-only{display:block!important}.rxprint-title{text-align:center;font-size:20pt;margin:0 0 12px}
+ .rxmeta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+ .rxnote{height:95px;border:1px solid #777;padding:7px;margin-bottom:10px;white-space:pre-wrap}
+ .print-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+ .print-col{border:1px solid #777}.print-col table{font-size:8pt}.print-col th,.print-col td{border:1px solid #999;padding:4px 3px;text-align:center}
+ .print-col td:first-child{text-align:left}.print-col .cat{writing-mode:vertical-rl;text-align:center;font-weight:bold;width:22px}
+ .print-col .code{text-align:center;font-weight:600}
+ .usage-table{font-size:9pt}.usage-table th,.usage-table td{padding:5px}
+ tr{break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<header><h1>무료진료 전자 진료·처방 관리 (구글시트 연동)</h1><p>클라우드 실시간 동기화 · 처방전 출력 · 진료일별 약품 소모량 집계</p></header>
+<main>
+<div class="tabs no-print">
+<button class="active" data-tab="entry">1. 진료·처방 입력</button>
+<button data-tab="dispense">2. 약제실 조제 확인</button>
+<button data-tab="usage">3. 약품 소모량</button>
+<button data-tab="records">4. 진료기록 조회</button>
+<button data-tab="settings">5. 설정·목록 관리·QR</button>
+</div>
+
+<section id="entry" class="panel">
+<h2>진료·처방 입력</h2>
+<div class="grid">
+<div class="field"><label>진료일</label><input type="date" id="date"></div>
+<div class="field"><label>진료단체</label><select id="team"><option value="">단체 선택</option></select></div>
+<div class="field"><label>환자번호 *</label><input id="pid" placeholder="기존 차트의 환자번호"></div>
+<div class="field"><label>성별</label><select id="sex"><option value="">선택</option><option>남</option><option>여</option><option>기타/미상</option></select></div>
+<div class="field"><label>나이</label><input id="age" type="number" min="0" max="120" placeholder="세"></div>
+<div class="field wide"><label>진료내용</label><textarea id="note" placeholder="의사가 기록한 진료내용"></textarea></div>
+</div>
+<h3>처방 약품 선택</h3>
+<div class="toolbar"><input class="search" id="drugSearch" placeholder="약품 코드 검색"><span class="muted">약품을 선택하면 아래 처방 입력란에 추가됩니다.</span></div>
+<div id="druglist" class="druglist"></div>
+<h3>선택된 처방</h3>
+<div id="rxArea"><div class="empty">위 목록에서 처방할 약품을 선택해 주세요.</div></div>
+<div class="actions no-print">
+<button class="btn primary" id="save">기록 저장</button>
+<button class="btn" id="printRx">진료·처방 기록지 인쇄</button>
+<button class="btn" id="clear">새 진료 입력</button>
+</div>
+<p class="muted">※ 처방량은 1회 투여량(개) × 1일 횟수(회) × 투여일수(일)로 총 소모량을 계산합니다.</p>
+</section>
+
+<section id="dispense" class="panel hidden">
+<h2>약제실 실시간 조제 확인</h2>
+<div class="toolbar no-print">
+<input class="search" id="dispenseSearch" placeholder="환자번호 또는 환자 성별/나이 검색">
+<button class="btn primary" id="refreshDispense">구글시트에서 데이터 새로고침</button>
+</div>
+<div id="dispenseTable"></div>
+</section>
+
+<section id="usage" class="panel hidden">
+<h2>약품 소모량 집계</h2>
+<div class="grid no-print">
+<div class="field"><label>진료일</label><input type="date" id="usageDate"></div>
+<div class="field"><label>진료단체</label><select id="usageTeam"><option value="">전체 진료단체</option></select></div>
+<div class="field"><label>약품 코드 검색</label><input id="usageSearch" placeholder="코드 검색"></div>
+</div>
+<div class="statrow" id="stats"></div>
+<div class="toolbar no-print">
+<button class="btn primary" id="printUsage">소모량 기록지 인쇄</button>
+<button class="btn" id="csvUsage">소모량 CSV 다운로드</button>
+<button class="btn" id="refreshUsage">구글시트 동기화</button>
+</div>
+<div id="usageTable"></div>
+</section>
+
+<section id="records" class="panel hidden">
+<h2>진료기록 조회 및 수정</h2>
+<div class="toolbar no-print">
+<input id="recordSearch" class="search" placeholder="환자번호·진료단체 검색">
+<input type="date" id="recordDate">
+<button class="btn" id="resetRecordFilter">필터 초기화</button>
+<button class="btn primary" id="refreshRecords">구글시트 동기화</button>
+</div>
+<div id="recordTable"></div>
+</section>
+
+<section id="settings" class="panel hidden">
+<h2>설정 및 목록 관리</h2>
+<div class="grid">
+<div class="field"><label>센터 비밀번호 변경</label><input type="password" id="passInput" placeholder="새 비밀번호 입력"><button class="btn" id="savePass" style="margin-top:5px">비밀번호 저장</button></div>
+</div>
+<hr style="margin:20px 0;border:0;border-top:1px solid var(--line)">
+<h3>진료단체 관리</h3>
+<div class="toolbar"><input id="newTeamInput" placeholder="추가할 진료단체 이름"><button class="btn primary" id="addTeamBtn">단체 추가</button></div>
+<div id="teamListDiv" style="margin-bottom:20px"></div>
+<hr style="margin:20px 0;border:0;border-top:1px solid var(--line)">
+<h3>약품 분류 및 코드 관리</h3>
+<div class="toolbar">
+<input id="newDrugCat" placeholder="분류명 (예: 해열진통제)">
+<input id="newDrugCode" placeholder="약품코드 (예: AAP650)">
+<button class="btn primary" id="addDrugBtn">약품 추가</button>
+</div>
+<div id="adminDrugList"></div>
+<hr style="margin:20px 0;border:0;border-top:1px solid var(--line)">
+<h3>모바일 QR 코드 접속</h3>
+<p class="muted">스마트폰 카메라로 아래 QR 코드를 비추면 언제 어디서나 접속할 수 있습니다.</p>
+<div id="qrcode" style="padding:10px;background:white;display:inline-block;border:1px solid var(--line);border-radius:8px"></div>
+<p id="qrUrlText" class="muted" style="margin-top:8px;font-weight:bold;word-break:break-all"></p>
+</section>
+</main>
+
+<div id="toast"></div>
+<div id="printRoot" class="print-only"></div>
+
+<script>
+// ★★★ 여기에 1단계에서 복사한 구글 앱스 스크립트 웹 앱 URL을 붙여넣으세요 ★★★
+https://script.google.com/macros/s/AKfycbwkxB-2tDLgbVuw0vGBf_2RqrBT8ZVPh_St09deYL5duNaRyJe-qjKW4tVmpyhn1YQw/exec;
+
+let defaultGroups = [
+  ["해열진통소염제",["AAP500","AAP650","ACEC","CELE200","DEXI","IBUP","LOXO","TALN","ULTR","ULTRS"]],
+  ["항전간제",["GABA100","PREG25"]],["근이완제",["AFLQ","EPER"]],
+  ["혈압제",["AMLO","CARV12.5","CARV25","DICH","HERB30","LASI","LOSA100","LOSA50","VALS160","VALS40","VALS80"]],
+  ["고지혈증",["ATOR10","FENO"]],["혈액순환 / 항혈소판",["ASPI","CILO","CILO100SR","GINK80"]],
+  ["당뇨병치료제",["AMAR1/250","AMAR2/500","DAPA10","DAPA10/500","LINA2.5/500","LINA5","METF500"]],
+  ["소화기제",["ALMA","CIME","DAGE","FAMO","LAFU","MOSA","PANT20","REBA","STIL","BISC"]],
+  ["진경제 / 정장하제",["MGO","TIRO","TRIM100"]],
+  ["호흡기계 / 항히스타민",["ACET","AMBR","AZEL","BAMB","CODE","CODE-S","LEVOC","LEVOD","PENI","PSEU"]],
+  ["항생제",["AUGM625","CEFA","CEFU","CIPR","MUPI-O","ROXI"]],
+  ["항진균",["TERB"]],["비뇨기계",["FINA","SOLI5","TERA2"]],["부신피질",["MESO","PRED"]],
+  ["비타민",["BECO"]],["점안액",["ALVD-ED","FLUO-ED","HYAL-ED","LEVO-ED"]],
+  ["기타 연고",["DERM-C","DESO-C","DESO-G","TERB-G"]]
+];
+
+let defaultTeams = ["○○ 의료봉사단", "사랑나눔 의료단", "희망클리닉", "메디컬 코리아", "나눔봉사회"];
+
+let groups = JSON.parse(localStorage.getItem("clinicGroups")||JSON.stringify(defaultGroups));
+let teams = JSON.parse(localStorage.getItem("clinicTeams")||JSON.stringify(defaultTeams));
+let records = [];
+let selected = [], editingId = null;
+
+const $=id=>document.getElementById(id), esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const today=new Date().toLocaleDateString("sv-SE");
+$("date").value=today; $("usageDate").value=today;
+
+function toast(t){$("toast").textContent=t;$("toast").style.display="block";setTimeout(()=>$("toast").style.display="none",2300)}
+
+// 구글 시트 데이터 불러오기 (GET)
+async function fetchRecordsFromCloud(showMsg=false){
+  if(!WEB_APP_URL.includes("script.google.com")){
+    if(showMsg) alert("상단의 WEB_APP_URL에 올바른 구글 앱스 스크립트 주소를 입력해주세요!");
+    return;
+  }
+  if(showMsg) toast("구글 시트에서 데이터를 불러오는 중...");
+  try {
+    let res = await fetch(WEB_APP_URL);
+    let json = await res.json();
+    if(json.status === "success" && Array.isArray(json.records)){
+      records = json.records;
+      renderRecords(); renderUsage(); renderDispense();
+      if(showMsg) toast("구글 시트 동기화 완료!");
+    }
+  } catch(e){
+    console.error(e);
+    if(showMsg) alert("구글 시트 연결 실패. 네트워크 상태나 웹 앱 URL을 확인해주세요.");
+  }
+}
+
+// 구글 시트로 데이터 저장하기 (POST)
+async function saveRecordsToCloud(){
+  if(!WEB_APP_URL.includes("script.google.com")){
+    toast("로컬에만 저장됨 (구글 시트 URL 미설정)");
+    return;
+  }
+  toast("구글 시트에 저장 중...");
+  try {
+    let res = await fetch(WEB_APP_URL, {
+      method: "POST",
+      body: JSON.stringify({records})
+    });
+    let json = await res.json();
+    if(json.status === "success"){
+      toast("구글 시트 실시간 저장 완료!");
+    } else {
+      alert("저장 실패: " + json.message);
+    }
+  } catch(e){
+    console.error(e);
+    alert("구글 시트 통신 오류가 발생했습니다.");
+  }
+}
+
+// 초기화 시 자동 동기화
+if(WEB_APP_URL.includes("script.google.com")){
+  fetchRecordsFromCloud();
+  setInterval(()=>fetchRecordsFromCloud(), 15000); // 15초마다 자동 동기화
+}
+
+function updateTeamSelects(){
+  let opts = '<option value="">단체 선택</option>' + teams.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join("");
+  $("team").innerHTML = opts;
+  let usageOpts = '<option value="">전체 진료단체</option>' + teams.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join("");
+  $("usageTeam").innerHTML = usageOpts;
+}
+
+function renderDrugs(){
+  let q=$("drugSearch").value.trim().toUpperCase();
+  let allDrugs = groups.flatMap(([cat,codes])=>codes.map(code=>({category:cat,code})));
+  $("druglist").innerHTML=groups.map(([cat,codes])=>{
+    let visible=codes.filter(c=>c.toUpperCase().includes(q));
+    if(!visible.length)return "";
+    return `<div class="druggroup"><h4>${esc(cat)}</h4>${visible.map(c=>`<label class="drug"><input type="checkbox" data-code="${esc(c)}" ${selected.some(x=>x.code===c)?"checked":""}><span>${esc(c)}</span></label>`).join("")}</div>`;
+  }).join("");
+  $("druglist").querySelectorAll("input").forEach(el=>el.addEventListener("change",()=>{
+    let code=el.dataset.code;
+    if(el.checked){if(!selected.some(x=>x.code===code))selected.push({code,dose:"",freq:"",days:""});}
+    else selected=selected.filter(x=>x.code!==code);
+    renderRx();
+  }));
+}
+
+function renderRx(){
+  if(!selected.length){$("rxArea").innerHTML='<div class="empty">선택된 약품이 없습니다.</div>';return}
+  $("rxArea").innerHTML=`<table class="rx-table"><thead><tr><th>약품 코드</th><th>1회량(개)</th><th>1일 횟수(회)</th><th>일수(일)</th><th>총 소모량(개)</th><th class="no-print">삭제</th></tr></thead><tbody>${selected.map((x,i)=>`<tr><td>${esc(x.code)}</td><td><input type="number" min="0" step="0.5" data-i="${i}" data-k="dose" value="${esc(x.dose)}"></td><td><input type="number" min="0" step="1" data-i="${i}" data-k="freq" value="${esc(x.freq)}"></td><td><input type="number" min="0" step="1" data-i="${i}" data-k="days" value="${esc(x.days)}"></td><td>${total(x)||"—"}</td><td class="no-print"><button class="btn" data-remove="${i}">삭제</button></td></tr>`).join("")}</tbody></table>`;
+  $("rxArea").querySelectorAll("input").forEach(el=>el.addEventListener("input",()=>{selected[+el.dataset.i][el.dataset.k]=el.value;renderRxKeepFocus(+el.dataset.i)}));
+  $("rxArea").querySelectorAll("[data-remove]").forEach(el=>el.addEventListener("click",()=>{selected.splice(+el.dataset.remove,1);renderRx();renderDrugs()}));
+}
+function renderRxKeepFocus(i){const row=$("rxArea").querySelectorAll("tbody tr")[i];if(row)row.cells[4].textContent=total(selected[i])||"—"}
+function total(x){let n=Number(x.dose)*Number(x.freq)*Number(x.days);return Number.isFinite(n)&&n>0?n:0}
+
+function formRecord(){
+  let date=$("date").value,pid=$("pid").value.trim();
+  if(!date||!pid){alert("진료일과 환자번호는 필수입니다.");return null}
+  if(!selected.length){alert("처방 약품을 하나 이상 선택해주세요.");return null}
+  return {
+    id:editingId||("r"+Date.now()+Math.random().toString(16).slice(2)),
+    date, team:$("team").value, pid, name:"", sex:$("sex").value, age:$("age").value,
+    note:$("note").value, rx:selected.map(x=>({...x,total:total(x)})), savedAt:new Date().toISOString()
+  };
+}
+
+function resetForm(){
+  editingId=null; selected=[];
+  ["pid","age","note"].forEach(id=>$(id).value="");
+  $("team").value=""; $("sex").value=""; $("date").value=today; $("drugSearch").value="";
+  renderDrugs(); renderRx();
+}
+
+$("save").onclick = async ()=>{
+  let r=formRecord(); if(!r) return;
+  let i=records.findIndex(x=>x.id===r.id);
+  if(i>=0) records[i]=r; else records.push(r);
+  resetForm();
+  renderRecords(); renderUsage(); renderDispense();
+  await saveRecordsToCloud();
+};
+
+$("clear").onclick = resetForm;
+$("drugSearch").oninput = renderDrugs;
+
+// 탭 전환
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".tabs button").forEach(x=>x.classList.toggle("active",x===b));
+  ["entry","dispense","usage","records","settings"].forEach(id=>$(id).classList.toggle("hidden",id!==b.dataset.tab));
+  if(b.dataset.tab==="usage") renderUsage();
+  if(b.dataset.tab==="records") renderRecords();
+  if(b.dataset.tab==="dispense") renderDispense();
+  if(b.dataset.tab==="settings") renderSettings();
+});
+
+// 약제실 조제 확인 탭
+function renderDispense(){
+  let q = $("dispenseSearch")?.value.trim().toLowerCase() || "";
+  let rs = records.filter(r=>!q || r.pid.toLowerCase().includes(q) || (r.sex && r.sex.toLowerCase().includes(q)));
+  $("dispenseTable").innerHTML = rs.length ? `<table><thead><tr><th>진료일</th><th>진료단체</th><th>환자번호</th><th>성별/나이</th><th>처방 내용 요약</th><th>처방전 인쇄</th></tr></thead><tbody>${rs.map(r=>`<tr><td>${esc(r.date)}</td><td>${esc(r.team)}</td><td><b>${esc(r.pid)}</b></td><td>${esc(r.sex)} / ${esc(r.age)}세</td><td>${r.rx.map(x=>`${x.code}(${x.total}개)`).join(", ")}</td><td><button class="btn primary" onclick='printRecordById("${r.id}")'>인쇄하기</button></td></tr>`).join("")}</tbody></table>` : '<div class="empty">등록된 처방 기록이 없습니다.</div>';
+}
+$("dispenseSearch")?.addEventListener("input", renderDispense);
+$("refreshDispense")?.onclick = ()=>fetchRecordsFromCloud(true);
+
+// 인쇄 함수
+window.printRecordById = function(id){
+  let r = records.find(x=>x.id===id);
+  if(!r) return;
+  $("printRoot").innerHTML = `<div style="text-align:center;font-size:20pt;margin-bottom:12px;font-weight:bold">진료 / 처방 기록지</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;font-size:11pt"><div>진료일: ${esc(r.date)}</div><div>진료단체: ${esc(r.team)}</div><div>환자번호: ${esc(r.pid)}</div><div>성별/나이: ${esc(r.sex)} / ${esc(r.age)}세</div></div><div style="margin-bottom:10px"><b>진료내용</b><div style="height:90px;border:1px solid #777;padding:7px;white-space:pre-wrap">${esc(r.note)}</div></div><div><b>처방 내역</b><ul>${r.rx.map(x=>`<li><b>${esc(x.code)}</b>: 1회 ${x.dose}개 × 1일 ${x.freq}회 × ${x.days}일 = 총 <b>${x.total}개</b></li>`).join("")}</ul></div>`;
+  window.print();
+};
+$("printRx").onclick = ()=>{
+  let r=formRecord(); if(r) { window.printRecordById(r.id); }
+};
+
+// 소모량 집계
+function filteredUsage(){
+  let d=$("usageDate").value, t=$("usageTeam").value.trim().toLowerCase(), q=$("usageSearch").value.trim().toUpperCase();
+  let allDrugs = groups.flatMap(([cat,codes])=>codes.map(code=>({category:cat,code})));
+  let rs=records.filter(r=>(!d||r.date===d)&&(!t||r.team.toLowerCase().includes(t)));
+  let sums={};
+  rs.forEach(r=>r.rx.forEach(x=>sums[x.code]=(sums[x.code]||0)+Number(x.total||0)));
+  let list = allDrugs.map(x=>[x.category, x.code, sums[x.code]||0]).filter(([cat,c])=>!q||c.includes(q));
+  return {rs, sums: list};
+}
+function renderUsage(){
+  let {rs, sums}=filteredUsage();
+  let totalCnt = sums.reduce((a,x)=>a+x[2],0);
+  $("stats").innerHTML=`<div class="stat"><b>${rs.length}</b><span>진료 건수</span></div><div class="stat"><b>${new Set(rs.map(x=>x.pid)).size}</b><span>환자 수</span></div><div class="stat"><b>${totalCnt.toLocaleString()}</b><span>약품 총 소모량(개)</span></div>`;
+  $("usageTable").innerHTML=sums.length?`<table><thead><tr><th>분류</th><th>약품 코드</th><th>소모량(개)</th></tr></thead><tbody>${sums.map(([cat,c,n])=>`<tr><td>${esc(cat)}</td><td>${esc(c)}</td><td>${n.toLocaleString()}</td></tr>`).join("")}</tbody></table>`:'<div class="empty">해당 조건의 처방 소모량이 없습니다.</div>';
+}
+["usageDate","usageTeam","usageSearch"].forEach(id=>$(id)?.addEventListener("input",renderUsage));
+$("refreshUsage")?.onclick = ()=>fetchRecordsFromCloud(true);
+$("csvUsage").onclick=()=>{
+  let {sums}=filteredUsage();
+  let csv="\ufeff분류,약품코드,소모량(개)\n"+sums.map(([cat,c,n])=>`"${cat}","${c}",${n}`).join("\n");
+  let a=document.createElement("a"),u=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+  a.href=u; a.download="약품소모량.csv"; a.click(); URL.revokeObjectURL(u);
+};
+
+// 진료기록 조회
+function renderRecords(){
+  let q=$("recordSearch")?.value.trim().toLowerCase()||"", d=$("recordDate")?.value||"";
+  let rs=records.filter(r=>(!q||[r.pid,r.team].some(x=>(x||"").toLowerCase().includes(q)))&&(!d||r.date===d)).sort((a,b)=>b.date.localeCompare(a.date));
+  $("recordTable").innerHTML=rs.length?`<table><thead><tr><th>진료일</th><th>환자번호</th><th>진료단체</th><th>처방 약품</th><th>작업</th></tr></thead><tbody>${rs.map(r=>`<tr><td>${esc(r.date)}</td><td><b>${esc(r.pid)}</b></td><td>${esc(r.team)}</td><td>${r.rx.length}종</td><td><button class="btn" onclick='printRecordById("${r.id}")'>인쇄</button> <button class="btn danger" onclick='deleteRecord("${r.id}")'>삭제</button></td></tr>`).join("")}</tbody></table>`:'<div class="empty">저장된 진료기록이 없습니다.</div>';
+}
+window.deleteRecord = async function(id){
+  if(confirm("이 진료기록을 삭제하시겠습니까?")){
+    records = records.filter(r=>r.id!==id);
+    renderRecords(); renderUsage(); renderDispense();
+    await saveRecordsToCloud();
+  }
+};
+$("recordSearch")?.addEventListener("input",renderRecords);
+$("recordDate")?.addEventListener("input",renderRecords);
+$("resetRecordFilter")?.onclick=()=>{$("recordSearch").value="";$("recordDate").value="";renderRecords()};
+$("refreshRecords")?.onclick = ()=>fetchRecordsFromCloud(true);
+
+// 설정 탭 (QR 및 목록 관리)
+function renderSettings(){
+  updateTeamSelects();
+  $("qrUrlText").textContent = window.location.href;
+  // QR 코드 간단 생성 (QR Server API 활용)
+  $("qrcode").innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.href)}" alt="QR Code">`;
+  
+  // 진료단체 관리 렌더링
+  $("teamListDiv").innerHTML = teams.map((t,i)=>`<span style="display:inline-block;background:var(--pale);padding:5px 10px;border-radius:6px;margin:3px;font-size:13px">${esc(t)} <button style="border:0;background:none;color:var(--red);cursor:pointer;font-weight:bold" onclick="removeTeam(${i})">×</button></span>`).join("");
+  
+  // 약품 목록 관리 렌더링
+  $("adminDrugList").innerHTML = groups.map(([cat,codes], gi)=>`<div style="margin-top:10px"><b>${esc(cat)}</b> <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${codes.map((c, ci)=>`<span style="background:var(--pale);padding:3px 8px;border-radius:4px;font-size:12px">${esc(c)} <button style="border:0;background:none;color:var(--red);cursor:pointer" onclick="removeDrug(${gi},${ci})">×</button></span>`).join("")}</div></div>`).join("");
+}
+
+$("addTeamBtn").onclick = ()=>{
+  let val = $("newTeamInput").value.trim();
+  if(val && !teams.includes(val)){
+    teams.push(val); localStorage.setItem("clinicTeams", JSON.stringify(teams));
+    $("newTeamInput").value=""; renderSettings(); updateTeamSelects(); toast("진료단체가 추가되었습니다.");
+  }
+};
+window.removeTeam = function(i){
+  teams.splice(i,1); localStorage.setItem("clinicTeams", JSON.stringify(teams)); renderSettings(); updateTeamSelects();
+};
+
+$("addDrugBtn").onclick = ()=>{
+  let cat = $("newDrugCat").value.trim();
+  let code = $("newDrugCode").value.trim().toUpperCase();
+  if(!cat || !code) { alert("분류명과 약품코드를 모두 입력해주세요."); return; }
+  let g = groups.find(x=>x[0]===cat);
+  if(g){
+    if(!g[1].includes(code)) g[1].push(code);
+  } else {
+    groups.push([cat, [code]]);
+  }
+  localStorage.setItem("clinicGroups", JSON.stringify(groups));
+  $("newDrugCode").value=""; renderSettings(); renderDrugs(); toast("약품이 추가되었습니다.");
+};
+window.removeDrug = function(gi, ci){
+  groups[gi][1].splice(ci,1);
+  if(groups[gi][1].length===0) groups.splice(gi,1);
+  localStorage.setItem("clinicGroups", JSON.stringify(groups));
+  renderSettings(); renderDrugs();
+};
+
+updateTeamSelects();
+renderDrugs(); renderRx();
+</script>
+</body>
+</html>
